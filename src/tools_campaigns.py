@@ -226,9 +226,10 @@ class CampaignTools:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         bidding_strategy: Optional[str] = None,
+        ad_serving_optimization_status: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update campaign settings.
-        
+
         Args:
             customer_id: The customer ID
             campaign_id: The campaign ID to update
@@ -237,21 +238,22 @@ class CampaignTools:
             start_date: New start date (YYYY-MM-DD format)
             end_date: New end date (YYYY-MM-DD format)
             bidding_strategy: Portfolio bidding strategy resource name (e.g., customers/123/biddingStrategies/456)
+            ad_serving_optimization_status: Ad rotation setting (OPTIMIZE, ROTATE, ROTATE_INDEFINITELY)
         """
         try:
             client = self.auth_manager.get_client(customer_id)
             campaign_service = client.get_service("CampaignService")
-            
+
             campaign_operation = client.get_type("CampaignOperation")
             campaign = campaign_operation.update
             campaign.resource_name = f"customers/{customer_id}/campaigns/{campaign_id}"
-            
+
             update_mask = []
-            
+
             if name is not None:
                 campaign.name = name
                 update_mask.append("name")
-                
+
             if status is not None:
                 status_enum = client.enums.CampaignStatusEnum
                 status_map = {
@@ -261,18 +263,30 @@ class CampaignTools:
                 }
                 campaign.status = status_map.get(status.upper(), status_enum.PAUSED)
                 update_mask.append("status")
-                
+
             if start_date is not None:
                 campaign.start_date = parse_date(start_date).strftime("%Y%m%d")
                 update_mask.append("start_date")
-                
+
             if end_date is not None:
                 campaign.end_date = parse_date(end_date).strftime("%Y%m%d")
                 update_mask.append("end_date")
-                
+
             if bidding_strategy is not None:
                 campaign.bidding_strategy = bidding_strategy
                 update_mask.append("bidding_strategy")
+
+            if ad_serving_optimization_status is not None:
+                ad_serving_enum = client.enums.AdServingOptimizationStatusEnum
+                ad_serving_map = {
+                    "OPTIMIZE": ad_serving_enum.OPTIMIZE,
+                    "ROTATE": ad_serving_enum.ROTATE,
+                    "ROTATE_INDEFINITELY": ad_serving_enum.ROTATE_INDEFINITELY,
+                }
+                campaign.ad_serving_optimization_status = ad_serving_map.get(
+                    ad_serving_optimization_status.upper(), ad_serving_enum.OPTIMIZE
+                )
+                update_mask.append("ad_serving_optimization_status")
                 
             # Set the update mask
             campaign_operation.update_mask.CopyFrom(
@@ -344,12 +358,13 @@ class CampaignTools:
             
             campaigns = []
             for row in response:
-                # Convert all protobuf/enum values to strings explicitly
+                status_val = row.campaign.status
+                type_val = row.campaign.advertising_channel_type
                 campaigns.append({
                     "id": str(row.campaign.id),
                     "name": str(row.campaign.name),
-                    "status": str(row.campaign.status.name),
-                    "type": str(row.campaign.advertising_channel_type.name),
+                    "status": status_val.name if hasattr(status_val, 'name') else str(status_val),
+                    "type": type_val.name if hasattr(type_val, 'name') else str(type_val),
                 })
                 
             return {
@@ -386,8 +401,6 @@ class CampaignTools:
                     campaign_budget.amount_micros,
                     campaign_budget.delivery_method,
                     campaign.bidding_strategy_type,
-                    campaign.start_date,
-                    campaign.end_date,
                     campaign.network_settings.target_google_search,
                     campaign.network_settings.target_search_network,
                     campaign.network_settings.target_partner_search_network,
@@ -410,23 +423,24 @@ class CampaignTools:
             )
             
             for row in response:
+                status_val = row.campaign.status
+                type_val = row.campaign.advertising_channel_type
+                subtype_val = row.campaign.advertising_channel_sub_type
+                delivery_val = row.campaign_budget.delivery_method
+                bidding_val = row.campaign.bidding_strategy_type
                 return {
                     "success": True,
                     "campaign": {
                         "id": str(row.campaign.id),
                         "name": row.campaign.name,
-                        "status": row.campaign.status.name,
-                        "type": row.campaign.advertising_channel_type.name,
-                        "subtype": getattr(row.campaign.advertising_channel_sub_type, "name", None),
+                        "status": status_val.name if hasattr(status_val, 'name') else str(status_val),
+                        "type": type_val.name if hasattr(type_val, 'name') else str(type_val),
+                        "subtype": subtype_val.name if hasattr(subtype_val, 'name') else str(subtype_val),
                         "budget": {
                             "amount": micros_to_currency(row.campaign_budget.amount_micros),
-                            "delivery_method": row.campaign_budget.delivery_method.name,
+                            "delivery_method": delivery_val.name if hasattr(delivery_val, 'name') else str(delivery_val),
                         },
-                        "bidding_strategy": row.campaign.bidding_strategy_type.name,
-                        "dates": {
-                            "start": row.campaign.start_date,
-                            "end": row.campaign.end_date,
-                        },
+                        "bidding_strategy": bidding_val.name if hasattr(bidding_val, 'name') else str(bidding_val),
                         "network_settings": {
                             "google_search": row.campaign.network_settings.target_google_search,
                             "search_network": row.campaign.network_settings.target_search_network,
@@ -713,17 +727,20 @@ class CampaignTools:
                         ads_query = f"SELECT ad_group_ad.ad.id, ad_group_ad.ad.type, ad_group_ad.status FROM ad_group_ad WHERE ad_group.id = {ad_group_id}"
                         ads_response = googleads_service.search(customer_id=customer_id, query=ads_query)
                         for ad_row in ads_response:
+                            ad_type_val = ad_row.ad_group_ad.ad.type
+                            ad_status_val = ad_row.ad_group_ad.status
                             ads_summary.append({
                                 "ad_id": str(ad_row.ad_group_ad.ad.id),
-                                "ad_type": str(ad_row.ad_group_ad.ad.type.name),
-                                "status": str(ad_row.ad_group_ad.status.name)
+                                "ad_type": ad_type_val.name if hasattr(ad_type_val, 'name') else str(ad_type_val),
+                                "status": ad_status_val.name if hasattr(ad_status_val, 'name') else str(ad_status_val)
                             })
                     except: pass
                     
+                    ag_status_val = row.ad_group.status
                     ad_groups_summary.append({
                         "ad_group_id": ad_group_id,
                         "ad_group_name": ad_group_name,
-                        "status": str(row.ad_group.status.name),
+                        "status": ag_status_val.name if hasattr(ag_status_val, 'name') else str(ag_status_val),
                         "performance": ag_performance,
                         "ads": ads_summary,
                         "ads_count": len(ads_summary)
@@ -815,7 +832,8 @@ class CampaignTools:
                 for row in aud_response:
                     audience_targeting["has_audiences"] = True
                     audience_targeting["total"] += 1
-                    criterion_type = str(row.ad_group_criterion.type.name)
+                    crit_type_val = row.ad_group_criterion.type
+                    criterion_type = crit_type_val.name if hasattr(crit_type_val, 'name') else str(crit_type_val)
                     if criterion_type == "USER_LIST": audience_targeting["user_lists"] += 1
                     elif criterion_type == "USER_INTEREST": audience_targeting["user_interests"] += 1
                     elif criterion_type == "CUSTOM_AUDIENCE": audience_targeting["custom_audiences"] += 1

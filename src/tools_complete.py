@@ -140,7 +140,7 @@ class GoogleAdsTools:
                 },
             },
             "update_campaign": {
-                "description": "Update campaign settings including assigning portfolio bidding strategies",
+                "description": "Update campaign settings including bidding strategies and ad rotation. Use ad_serving_optimization_status to control ad rotation: OPTIMIZE (let Google optimize), ROTATE (rotate evenly for 90 days then optimize), ROTATE_INDEFINITELY (rotate ads indefinitely, do not optimize).",
                 "handler": self.campaign_tools.update_campaign,
                 "parameters": {
                     "customer_id": {"type": "string", "required": True},
@@ -150,6 +150,7 @@ class GoogleAdsTools:
                     "start_date": {"type": "string"},
                     "end_date": {"type": "string"},
                     "bidding_strategy": {"type": "string"},
+                    "ad_serving_optimization_status": {"type": "string", "description": "Ad rotation setting: OPTIMIZE, ROTATE, or ROTATE_INDEFINITELY"},
                 },
             },
             "pause_campaign": {
@@ -419,6 +420,13 @@ class GoogleAdsTools:
                 "parameters": {
                     "customer_id": {"type": "string", "required": True},
                     "asset_type": {"type": "string"},
+                },
+            },
+            "remove_auto_created_assets": {
+                "description": "Remove all automatically created (AI-generated) customer-level assets such as auto-created callouts, sitelinks, and structured snippets",
+                "handler": self.asset_tools.remove_auto_created_assets,
+                "parameters": {
+                    "customer_id": {"type": "string", "required": True},
                 },
             },
         }

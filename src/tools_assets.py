@@ -6,6 +6,7 @@ import structlog
 
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
+from google.protobuf.field_mask_pb2 import FieldMask
 
 logger = structlog.get_logger(__name__)
 
@@ -240,4 +241,99 @@ class AssetTools:
                 "success": False,
                 "error": str(e),
                 "error_type": "UnexpectedError"
+            }
+
+    async def remove_auto_created_assets(
+        self,
+        customer_id: str,
+    ) -> Dict[str, Any]:
+        """Remove all automatically created (AI-generated) customer-level assets.
+
+        Queries for customer_asset entries where source is AUTOMATICALLY_CREATED
+        and removes the customer_asset links via CustomerAssetService.
+
+        Args:
+            customer_id: The customer ID
+        """
+        try:
+            client = self.auth_manager.get_client(customer_id)
+            googleads_service = client.get_service("GoogleAdsService")
+            customer_asset_service = client.get_service("CustomerAssetService")
+
+            # Find all auto-created customer assets that are still active
+            query = (
+                "SELECT customer_asset.resource_name, customer_asset.field_type, "
+                "asset.type, asset.source "
+                "FROM customer_asset "
+                "WHERE asset.source = 'AUTOMATICALLY_CREATED' "
+                "AND customer_asset.status = 'ENABLED'"
+            )
+
+            response = googleads_service.search(
+                customer_id=customer_id, query=query
+            )
+
+            auto_assets = []
+            operations = []
+            for row in response:
+                resource_name = row.customer_asset.resource_name
+                field_type = row.customer_asset.field_type
+                asset_type = row.asset.type_
+
+                auto_assets.append({
+                    "resource_name": resource_name,
+                    "field_type": field_type.name if hasattr(field_type, "name") else str(field_type),
+                    "asset_type": asset_type.name if hasattr(asset_type, "name") else str(asset_type),
+                })
+
+                operation = client.get_type("CustomerAssetOperation")
+                operation.remove = resource_name
+                operations.append(operation)
+
+            if not operations:
+                return {
+                    "success": True,
+                    "removed_count": 0,
+                    "message": "No automatically created assets found",
+                }
+
+            # Execute the removal one at a time to handle partial failures
+            removed = []
+            failed = []
+            for i, operation in enumerate(operations):
+                try:
+                    customer_asset_service.mutate_customer_assets(
+                        customer_id=customer_id,
+                        operations=[operation],
+                    )
+                    removed.append(auto_assets[i])
+                except GoogleAdsException as op_e:
+                    failed.append({
+                        **auto_assets[i],
+                        "error": str(op_e.failure.errors[0].message) if op_e.failure.errors else str(op_e),
+                    })
+
+            return {
+                "success": True,
+                "removed_count": len(removed),
+                "removed_assets": removed,
+                "failed_count": len(failed),
+                "failed_assets": failed,
+                "message": f"Removed {len(removed)} auto-created asset(s)"
+                + (f", {len(failed)} failed" if failed else ""),
+            }
+
+        except GoogleAdsException as e:
+            logger.error(f"Failed to remove auto-created assets: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "error_type": "GoogleAdsException",
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error removing auto-created assets: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "error_type": "UnexpectedError",
             }
