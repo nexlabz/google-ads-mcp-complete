@@ -240,24 +240,36 @@ class AudienceTools:
             
             audiences = []
             for row in response:
+                type_val = row.user_list.type
+                type_str = type_val.name if hasattr(type_val, 'name') else str(type_val)
+                membership_status_val = row.user_list.membership_status
+                membership_status_str = membership_status_val.name if hasattr(membership_status_val, 'name') else str(membership_status_val)
                 audience_data = {
                     "audience_id": str(row.user_list.id),
                     "name": str(row.user_list.name),
                     "description": str(row.user_list.description),
-                    "type": str(row.user_list.type.name),
-                    "membership_status": str(row.user_list.membership_status.name),
+                    "type": type_str,
+                    "membership_status": membership_status_str,
                     "membership_life_span": row.user_list.membership_life_span,
                     "size_for_display": row.user_list.size_for_display if row.user_list.size_for_display else 0,
                     "size_for_search": row.user_list.size_for_search if row.user_list.size_for_search else 0,
                     "resource_name": f"customers/{customer_id}/userLists/{row.user_list.id}",
                 }
-                
+
                 # Add type-specific details
-                if row.user_list.type.name == "CRM_BASED":
-                    audience_data["upload_key_type"] = str(row.user_list.crm_based_user_list.upload_key_type.name) if hasattr(row.user_list, 'crm_based_user_list') else "N/A"
-                elif row.user_list.type.name == "RULE_BASED":
-                    audience_data["prepopulation_status"] = str(row.user_list.rule_based_user_list.prepopulation_status.name) if hasattr(row.user_list, 'rule_based_user_list') else "N/A"
-                
+                if type_str == "CRM_BASED":
+                    if hasattr(row.user_list, 'crm_based_user_list'):
+                        ukt_val = row.user_list.crm_based_user_list.upload_key_type
+                        audience_data["upload_key_type"] = ukt_val.name if hasattr(ukt_val, 'name') else str(ukt_val)
+                    else:
+                        audience_data["upload_key_type"] = "N/A"
+                elif type_str == "RULE_BASED":
+                    if hasattr(row.user_list, 'rule_based_user_list'):
+                        pp_val = row.user_list.rule_based_user_list.prepopulation_status
+                        audience_data["prepopulation_status"] = pp_val.name if hasattr(pp_val, 'name') else str(pp_val)
+                    else:
+                        audience_data["prepopulation_status"] = "N/A"
+
                 audiences.append(audience_data)
             
             return {
@@ -341,7 +353,7 @@ class AudienceTools:
                     "ad_group_name": str(row.ad_group.name),
                     "campaign_name": str(row.campaign.name),
                     "bid_modifier": row.ad_group_criterion.bid_modifier if row.ad_group_criterion.bid_modifier else 1.0,
-                    "status": str(row.ad_group_criterion.status.name),
+                    "status": row.ad_group_criterion.status.name if hasattr(row.ad_group_criterion.status, 'name') else str(row.ad_group_criterion.status),
                     "performance": {
                         "clicks": int(row.metrics.clicks),
                         "impressions": int(row.metrics.impressions),

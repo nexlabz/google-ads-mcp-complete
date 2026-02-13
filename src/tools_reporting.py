@@ -32,10 +32,11 @@ class ReportingTools:
             googleads_service = client.get_service("GoogleAdsService")
             
             # Default metrics if not specified
+            # Note: conversion_rate is NOT a valid GAQL field — calculate manually
             if not metrics:
                 metrics = [
                     "clicks", "impressions", "cost_micros", "conversions",
-                    "ctr", "average_cpc", "conversion_rate", "cost_per_conversion"
+                    "ctr", "average_cpc", "cost_per_conversion"
                 ]
                 
             # Build metrics selection
@@ -65,22 +66,23 @@ class ReportingTools:
             total_metrics = {m: 0 for m in metrics}
             
             for row in response:
+                status_val = row.campaign.status
                 campaign_data = {
                     "id": str(row.campaign.id),
                     "name": row.campaign.name,
-                    "status": row.campaign.status.name,
+                    "status": status_val.name if hasattr(status_val, 'name') else str(status_val),
                     "metrics": {}
                 }
-                
+
                 # Process each metric
                 for metric in metrics:
                     value = getattr(row.metrics, metric)
-                    
+
                     # Format currency metrics
                     if metric.endswith("_micros"):
                         campaign_data["metrics"][metric.replace("_micros", "")] = micros_to_currency(value)
                         total_metrics[metric] += value
-                    elif metric in ["ctr", "conversion_rate"]:
+                    elif metric in ["ctr"]:
                         campaign_data["metrics"][metric] = f"{value:.2%}"
                         total_metrics[metric] += value
                     else:
@@ -94,7 +96,7 @@ class ReportingTools:
             for metric, value in total_metrics.items():
                 if metric.endswith("_micros"):
                     formatted_totals[metric.replace("_micros", "")] = micros_to_currency(value)
-                elif metric in ["ctr", "conversion_rate"]:
+                elif metric in ["ctr"]:
                     # Calculate weighted average for rates
                     if len(campaigns) > 0:
                         formatted_totals[metric] = f"{value/len(campaigns):.2%}"
@@ -160,10 +162,11 @@ class ReportingTools:
             
             ad_groups = []
             for row in response:
+                ag_status = row.ad_group.status
                 ad_groups.append({
                     "id": str(row.ad_group.id),
                     "name": row.ad_group.name,
-                    "status": row.ad_group.status.name,
+                    "status": ag_status.name if hasattr(ag_status, 'name') else str(ag_status),
                     "campaign": {
                         "id": str(row.campaign.id),
                         "name": row.campaign.name,
@@ -220,8 +223,7 @@ class ReportingTools:
                     metrics.conversions,
                     metrics.ctr,
                     metrics.average_cpc,
-                    metrics.conversions,
-                    metrics.average_position
+                    metrics.conversions
                 FROM keyword_view
                 WHERE segments.date DURING {date_range}
                     AND ad_group_criterion.type = 'KEYWORD'
@@ -239,10 +241,12 @@ class ReportingTools:
             
             keywords = []
             for row in response:
+                kw_match_type = row.ad_group_criterion.keyword.match_type
+                kw_status = row.ad_group_criterion.status
                 keywords.append({
                     "text": row.ad_group_criterion.keyword.text,
-                    "match_type": row.ad_group_criterion.keyword.match_type.name,
-                    "status": row.ad_group_criterion.status.name,
+                    "match_type": kw_match_type.name if hasattr(kw_match_type, 'name') else str(kw_match_type),
+                    "status": kw_status.name if hasattr(kw_status, 'name') else str(kw_status),
                     "ad_group": {
                         "id": str(row.ad_group.id),
                         "name": row.ad_group.name,
@@ -259,7 +263,6 @@ class ReportingTools:
                         "ctr": f"{row.metrics.ctr:.2%}",
                         "average_cpc": micros_to_currency(row.metrics.average_cpc),
                         "conversion_rate": f"{(row.metrics.conversions / row.metrics.clicks * 100):.2f}%" if row.metrics.clicks > 0 else "0.00%",
-                        "average_position": f"{row.metrics.average_position:.1f}" if row.metrics.average_position else "N/A",
                     },
                 })
                 
@@ -414,9 +417,10 @@ class ReportingTools:
             
             search_terms = []
             for row in response:
+                st_status = row.search_term_view.status
                 search_terms.append({
                     "search_term": row.search_term_view.search_term,
-                    "status": row.search_term_view.status.name,
+                    "status": st_status.name if hasattr(st_status, 'name') else str(st_status),
                     "campaign": {
                         "id": str(row.campaign.id),
                         "name": row.campaign.name,

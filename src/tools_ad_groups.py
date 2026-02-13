@@ -132,11 +132,15 @@ class AdGroupTools:
             
             ad_groups = []
             for row in response:
+                status_val = row.ad_group.status
+                status_str = status_val.name if hasattr(status_val, 'name') else str(status_val)
+                type_val = row.ad_group.type_
+                type_str = type_val.name if hasattr(type_val, 'name') else str(type_val)
                 ad_groups.append({
                     "id": str(row.ad_group.id),
                     "name": str(row.ad_group.name),
-                    "status": str(row.ad_group.status.name),
-                    "type": str(row.ad_group.type_.name),
+                    "status": status_str,
+                    "type": type_str,
                     "cpc_bid": micros_to_currency(row.ad_group.cpc_bid_micros),
                     "campaign_id": str(row.campaign.id),
                     "campaign_name": str(row.campaign.name)
@@ -273,19 +277,25 @@ class AdGroupTools:
             )
             
             for row in response:
+                ag_status_val = row.ad_group.status
+                ag_status_str = ag_status_val.name if hasattr(ag_status_val, 'name') else str(ag_status_val)
+                ag_type_val = row.ad_group.type_
+                ag_type_str = ag_type_val.name if hasattr(ag_type_val, 'name') else str(ag_type_val)
+                camp_status_val = row.campaign.status
+                camp_status_str = camp_status_val.name if hasattr(camp_status_val, 'name') else str(camp_status_val)
                 return {
                     "success": True,
                     "ad_group": {
                         "id": str(row.ad_group.id),
                         "name": str(row.ad_group.name),
-                        "status": str(row.ad_group.status.name),
-                        "type": str(row.ad_group.type_.name),
+                        "status": ag_status_str,
+                        "type": ag_type_str,
                         "cpc_bid": micros_to_currency(row.ad_group.cpc_bid_micros),
                         "cpc_bid_micros": row.ad_group.cpc_bid_micros,
                         "campaign": {
                             "id": str(row.campaign.id),
                             "name": str(row.campaign.name),
-                            "status": str(row.campaign.status.name)
+                            "status": camp_status_str
                         }
                     }
                 }

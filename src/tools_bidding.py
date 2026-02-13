@@ -187,7 +187,8 @@ class BiddingTools:
                 total_adjusted_conversions += conversions
                 
                 # Determine adjustment type and target
-                adjustment_type = str(row.campaign_criterion.type.name)
+                criterion_type_val = row.campaign_criterion.type
+                adjustment_type = criterion_type_val.name if hasattr(criterion_type_val, 'name') else str(criterion_type_val)
                 target_name = "Unknown"
                 
                 if adjustment_type == "MOBILE_DEVICE":
@@ -399,22 +400,26 @@ class BiddingTools:
             
             strategies = []
             for row in response:
+                type_val = row.bidding_strategy.type
+                type_str = type_val.name if hasattr(type_val, 'name') else str(type_val)
+                status_val = row.bidding_strategy.status
+                status_str = status_val.name if hasattr(status_val, 'name') else str(status_val)
                 strategy_data = {
                     "strategy_id": str(row.bidding_strategy.id),
                     "name": str(row.bidding_strategy.name),
-                    "type": str(row.bidding_strategy.type.name),
-                    "status": str(row.bidding_strategy.status.name),
+                    "type": type_str,
+                    "status": status_str,
                     "campaign_count": row.bidding_strategy.campaign_count,
                     "active_campaigns": row.bidding_strategy.non_removed_campaign_count,
                     "resource_name": f"customers/{customer_id}/biddingStrategies/{row.bidding_strategy.id}",
                 }
-                
+
                 # Add type-specific configuration
-                if row.bidding_strategy.type.name == "TARGET_CPA":
+                if type_str == "TARGET_CPA":
                     strategy_data["target_cpa"] = micros_to_currency(row.bidding_strategy.target_cpa.target_cpa_micros)
-                elif row.bidding_strategy.type.name == "TARGET_ROAS":
+                elif type_str == "TARGET_ROAS":
                     strategy_data["target_roas"] = row.bidding_strategy.target_roas.target_roas
-                
+
                 strategies.append(strategy_data)
             
             return {
@@ -474,7 +479,8 @@ class BiddingTools:
             total_conversions = 0
             
             for row in response:
-                device = str(row.segments.device.name)
+                device_val = row.segments.device
+                device = device_val.name if hasattr(device_val, 'name') else str(device_val)
                 cost = row.metrics.cost_micros / 1_000_000
                 conversions = float(row.metrics.conversions)
                 conversion_value = float(row.metrics.conversions_value)

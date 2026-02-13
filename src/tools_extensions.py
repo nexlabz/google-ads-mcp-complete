@@ -442,33 +442,37 @@ class ExtensionTools:
             
             extensions = []
             for row in response:
+                ext_type_val = row.extension_feed_item.extension_type
+                ext_type_str = ext_type_val.name if hasattr(ext_type_val, 'name') else str(ext_type_val)
+                ext_status_val = row.extension_feed_item.status
+                ext_status_str = ext_status_val.name if hasattr(ext_status_val, 'name') else str(ext_status_val)
                 extension_data = {
                     "id": str(row.extension_feed_item.id),
-                    "type": str(row.extension_feed_item.extension_type.name),
-                    "status": str(row.extension_feed_item.status.name),
+                    "type": ext_type_str,
+                    "status": ext_status_str,
                     "campaign_name": str(row.campaign.name),
                     "campaign_id": str(row.campaign.id),
                     "resource_name": row.extension_feed_item.resource_name,
                 }
-                
+
                 # Add type-specific data
-                if row.extension_feed_item.extension_type.name == "SITELINK":
+                if ext_type_str == "SITELINK":
                     extension_data["sitelink"] = {
                         "link_text": str(row.extension_feed_item.sitelink_feed_item.link_text),
                         "description1": str(row.extension_feed_item.sitelink_feed_item.line1),
                         "description2": str(row.extension_feed_item.sitelink_feed_item.line2),
                         "url": row.extension_feed_item.final_urls[0] if row.extension_feed_item.final_urls else "",
                     }
-                elif row.extension_feed_item.extension_type.name == "CALLOUT":
+                elif ext_type_str == "CALLOUT":
                     extension_data["callout"] = {
                         "text": str(row.extension_feed_item.callout_feed_item.callout_text),
                     }
-                elif row.extension_feed_item.extension_type.name == "CALL":
+                elif ext_type_str == "CALL":
                     extension_data["call"] = {
                         "phone_number": str(row.extension_feed_item.call_feed_item.phone_number),
                         "country_code": str(row.extension_feed_item.call_feed_item.country_code),
                     }
-                
+
                 extensions.append(extension_data)
             
             return {

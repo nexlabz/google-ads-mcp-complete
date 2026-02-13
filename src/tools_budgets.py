@@ -183,13 +183,17 @@ class BudgetTools:
             
             budgets = []
             for row in response:
+                dm_val = row.campaign_budget.delivery_method
+                dm_str = dm_val.name if hasattr(dm_val, 'name') else str(dm_val)
+                status_val = row.campaign_budget.status
+                status_str = status_val.name if hasattr(status_val, 'name') else str(status_val)
                 budgets.append({
                     "id": str(row.campaign_budget.id),
                     "name": str(row.campaign_budget.name),
                     "amount": micros_to_currency(row.campaign_budget.amount_micros),
                     "amount_micros": row.campaign_budget.amount_micros,
-                    "delivery_method": str(row.campaign_budget.delivery_method.name),
-                    "status": str(row.campaign_budget.status.name)
+                    "delivery_method": dm_str,
+                    "status": status_str
                 })
             
             return {

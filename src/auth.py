@@ -61,7 +61,11 @@ class GoogleAdsAuthManager:
         
         for env_key, config_key in env_mapping.items():
             if env_value := os.getenv(env_key):
-                self.config[config_key] = env_value
+                # Convert string booleans to actual booleans
+                if config_key == "use_proto_plus":
+                    self.config[config_key] = env_value.lower() in ("true", "1", "yes")
+                else:
+                    self.config[config_key] = env_value
                 
         # Validate required fields
         if not self.config.get("developer_token"):
@@ -127,15 +131,16 @@ class GoogleAdsAuthManager:
             
     def get_client(self, customer_id: Optional[str] = None) -> GoogleAdsClient:
         """Get an authenticated Google Ads client.
-        
+
         Args:
-            customer_id: Optional customer ID to use. Defaults to login_customer_id.
-            
+            customer_id: Ignored (kept for backward compat). The client always
+                uses the login_customer_id from config (the MCC account).
+
         Returns:
             Authenticated GoogleAdsClient instance.
         """
-        # Check cache
-        cache_key = customer_id or "default"
+        # Single cached client — login_customer_id is always from config
+        cache_key = "default"
         if cached_client := self._client_cache.get(cache_key):
             return cached_client
             
@@ -156,10 +161,10 @@ class GoogleAdsAuthManager:
                 "use_proto_plus": self.config.get("use_proto_plus", True),
             }
             
-            # Add customer IDs
-            if customer_id:
-                client_config["login_customer_id"] = customer_id.replace("-", "")
-            elif login_customer_id := self.config.get("login_customer_id"):
+            # Always use the MCC login_customer_id from config — this is the
+            # manager account needed to access sub-accounts. The customer_id
+            # param is the account being queried, NOT the login account.
+            if login_customer_id := self.config.get("login_customer_id"):
                 client_config["login_customer_id"] = login_customer_id.replace("-", "")
                 
             if linked_customer_id := self.config.get("linked_customer_id"):

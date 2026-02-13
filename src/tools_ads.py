@@ -256,23 +256,28 @@ class AdTools:
             
             ads = []
             for row in response:
+                ad_type_val = row.ad_group_ad.ad.type_
+                ad_type_str = ad_type_val.name if hasattr(ad_type_val, 'name') else str(ad_type_val)
+                status_val = row.ad_group_ad.status
+                status_str = status_val.name if hasattr(status_val, 'name') else str(status_val)
+
                 ad_data = {
                     "id": str(row.ad_group_ad.ad.id),
-                    "type": str(row.ad_group_ad.ad.type_.name),
-                    "status": str(row.ad_group_ad.status.name),
+                    "type": ad_type_str,
+                    "status": status_str,
                     "final_urls": list(row.ad_group_ad.ad.final_urls),
                     "ad_group_id": str(row.ad_group.id),
                     "ad_group_name": str(row.ad_group.name),
                     "campaign_id": str(row.campaign.id),
                     "campaign_name": str(row.campaign.name)
                 }
-                
+
                 # Add type-specific details
-                if row.ad_group_ad.ad.type_.name == "RESPONSIVE_SEARCH_AD":
+                if ad_type_str == "RESPONSIVE_SEARCH_AD":
                     rsa = row.ad_group_ad.ad.responsive_search_ad
                     ad_data["headlines"] = [h.text for h in rsa.headlines]
                     ad_data["descriptions"] = [d.text for d in rsa.descriptions]
-                elif row.ad_group_ad.ad.type_.name == "EXPANDED_TEXT_AD":
+                elif ad_type_str == "EXPANDED_TEXT_AD":
                     eta = row.ad_group_ad.ad.expanded_text_ad
                     ad_data["headline1"] = eta.headline_part1
                     ad_data["headline2"] = eta.headline_part2
@@ -505,21 +510,32 @@ class AdTools:
             
             ads_details = []
             for row in response:
+                ad_type_val = row.ad_group_ad.ad.type_
+                ad_type_str = ad_type_val.name if hasattr(ad_type_val, 'name') else str(ad_type_val)
+                status_val = row.ad_group_ad.status
+                status_str = status_val.name if hasattr(status_val, 'name') else str(status_val)
+                strength_val = row.ad_group_ad.strength if hasattr(row.ad_group_ad, 'strength') else None
+                strength_str = (strength_val.name if hasattr(strength_val, 'name') else str(strength_val)) if strength_val else "NOT_AVAILABLE"
+                review_val = row.ad_group_ad.policy_summary.review_status if hasattr(row.ad_group_ad, 'policy_summary') else None
+                review_str = (review_val.name if hasattr(review_val, 'name') else str(review_val)) if review_val else "UNKNOWN"
+                approval_val = row.ad_group_ad.policy_summary.approval_status if hasattr(row.ad_group_ad, 'policy_summary') else None
+                approval_str = (approval_val.name if hasattr(approval_val, 'name') else str(approval_val)) if approval_val else "UNKNOWN"
+
                 ad_data = {
                     "ad_id": str(row.ad_group_ad.ad.id),
                     "ad_name": str(row.ad_group_ad.ad.name) if row.ad_group_ad.ad.name else f"Ad {row.ad_group_ad.ad.id}",
-                    "ad_type": str(row.ad_group_ad.ad.type_.name),
-                    "status": str(row.ad_group_ad.status.name),
+                    "ad_type": ad_type_str,
+                    "status": status_str,
                     "ad_group_name": str(row.ad_group.name),
                     "campaign_name": str(row.campaign.name),
-                    
+
                     # Ad Strength & Quality
-                    "ad_strength": str(row.ad_group_ad.strength.name) if hasattr(row.ad_group_ad, 'strength') and row.ad_group_ad.strength else "NOT_AVAILABLE",
-                    
+                    "ad_strength": strength_str,
+
                     # Review & Policy Status
-                    "review_status": str(row.ad_group_ad.policy_summary.review_status.name) if hasattr(row.ad_group_ad, 'policy_summary') else "UNKNOWN",
-                    "approval_status": str(row.ad_group_ad.policy_summary.approval_status.name) if hasattr(row.ad_group_ad, 'policy_summary') else "UNKNOWN",
-                    
+                    "review_status": review_str,
+                    "approval_status": approval_str,
+
                     # Performance
                     "performance": {
                         "clicks": int(row.metrics.clicks) if hasattr(row, 'metrics') else 0,
@@ -527,9 +543,9 @@ class AdTools:
                         "ctr": f"{row.metrics.ctr:.2%}" if hasattr(row, 'metrics') and row.metrics.ctr else "0.00%",
                     }
                 }
-                
+
                 # Add ad content details
-                if row.ad_group_ad.ad.type_.name == "RESPONSIVE_SEARCH_AD":
+                if ad_type_str == "RESPONSIVE_SEARCH_AD":
                     headlines = [str(h.text) for h in row.ad_group_ad.ad.responsive_search_ad.headlines]
                     descriptions = [str(d.text) for d in row.ad_group_ad.ad.responsive_search_ad.descriptions]
                     
@@ -671,12 +687,17 @@ class AdTools:
                 roas = conversion_value / cost if cost > 0 else 0
                 conversion_rate = (conversions / clicks * 100) if clicks > 0 else 0
                 
+                strength_val = row.ad_group_ad.strength if hasattr(row.ad_group_ad, 'strength') and row.ad_group_ad.strength else None
+                strength_str = (strength_val.name if hasattr(strength_val, 'name') else str(strength_val)) if strength_val else "NOT_AVAILABLE"
+                status_val = row.ad_group_ad.status
+                status_str = status_val.name if hasattr(status_val, 'name') else str(status_val)
+
                 ad_data = {
                     "ad_id": str(row.ad_group_ad.ad.id),
                     "ad_name": str(row.ad_group_ad.ad.name) if row.ad_group_ad.ad.name else f"Ad {row.ad_group_ad.ad.id}",
-                    "ad_strength": str(row.ad_group_ad.strength.name) if hasattr(row.ad_group_ad, 'strength') and row.ad_group_ad.strength else "NOT_AVAILABLE",
-                    "status": str(row.ad_group_ad.status.name),
-                    
+                    "ad_strength": strength_str,
+                    "status": status_str,
+
                     # Core Performance Metrics
                     "performance": {
                         "clicks": clicks,
@@ -780,12 +801,17 @@ class AdTools:
                 if clicks > 0 and cost > 0:
                     efficiency_score = (ctr * 10) + (conversion_rate * 5) + (roas * 2) + (100 / max(cost_per_conversion, 1))
                 
+                strength_val = row.ad_group_ad.strength if hasattr(row.ad_group_ad, 'strength') and row.ad_group_ad.strength else None
+                strength_str = (strength_val.name if hasattr(strength_val, 'name') else str(strength_val)) if strength_val else "NOT_AVAILABLE"
+                status_val = row.ad_group_ad.status
+                status_str = status_val.name if hasattr(status_val, 'name') else str(status_val)
+
                 ad_data = {
                     "rank": 0,  # Will be set after sorting
                     "ad_id": str(row.ad_group_ad.ad.id),
                     "ad_name": str(row.ad_group_ad.ad.name) if row.ad_group_ad.ad.name else f"Ad {row.ad_group_ad.ad.id}",
-                    "ad_strength": str(row.ad_group_ad.strength.name) if hasattr(row.ad_group_ad, 'strength') and row.ad_group_ad.strength else "NOT_AVAILABLE",
-                    "status": str(row.ad_group_ad.status.name),
+                    "ad_strength": strength_str,
+                    "status": status_str,
                     
                     # Performance metrics
                     "performance": {
@@ -929,12 +955,15 @@ class AdTools:
                 roas = conversion_value / cost if cost > 0 else 0
                 conversion_rate = (conversions / clicks * 100) if clicks > 0 else 0
                 
+                strength_val = row.ad_group_ad.strength if hasattr(row.ad_group_ad, 'strength') and row.ad_group_ad.strength else None
+                strength_str = (strength_val.name if hasattr(strength_val, 'name') else str(strength_val)) if strength_val else "NOT_AVAILABLE"
+
                 ads_data.append({
                     "ad_id": str(row.ad_group_ad.ad.id),
                     "ad_name": str(row.ad_group_ad.ad.name) if row.ad_group_ad.ad.name else f"Ad {row.ad_group_ad.ad.id}",
                     "ad_group_name": str(row.ad_group.name),
                     "campaign_name": str(row.campaign.name),
-                    "strength": str(row.ad_group_ad.strength.name) if hasattr(row.ad_group_ad, 'strength') and row.ad_group_ad.strength else "NOT_AVAILABLE",
+                    "strength": strength_str,
                     "clicks": clicks,
                     "cost": cost,
                     "conversions": conversions,
@@ -1228,9 +1257,11 @@ class AdTools:
             current_data = {}
             for row in current_response:
                 ad_id = str(row.ad_group_ad.ad.id)
+                strength_val = row.ad_group_ad.strength if hasattr(row.ad_group_ad, 'strength') and row.ad_group_ad.strength else None
+                strength_str = (strength_val.name if hasattr(strength_val, 'name') else str(strength_val)) if strength_val else "NOT_AVAILABLE"
                 current_data[ad_id] = {
                     "ad_name": str(row.ad_group_ad.ad.name) if row.ad_group_ad.ad.name else f"Ad {ad_id}",
-                    "strength": str(row.ad_group_ad.strength.name) if hasattr(row.ad_group_ad, 'strength') and row.ad_group_ad.strength else "NOT_AVAILABLE",
+                    "strength": strength_str,
                     "clicks": int(row.metrics.clicks) if hasattr(row, 'metrics') else 0,
                     "ctr": float(row.metrics.ctr) if hasattr(row, 'metrics') and row.metrics.ctr else 0,
                     "conversions": float(row.metrics.conversions) if hasattr(row, 'metrics') else 0,

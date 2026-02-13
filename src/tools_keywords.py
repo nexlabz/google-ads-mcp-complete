@@ -253,12 +253,17 @@ class KeywordTools:
         ad_group_id: Optional[str] = None,
         campaign_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        """List keywords with performance data."""
+        """List keywords (without performance metrics).
+
+        For performance data, use get_keyword_performance which queries
+        keyword_view instead.
+        """
         try:
             client = self.auth_manager.get_client(customer_id)
             googleads_service = client.get_service("GoogleAdsService")
-            
-            # Build query
+
+            # Query ad_group_criterion — metrics are NOT compatible with this
+            # resource, so we only select keyword attributes.
             query = """
                 SELECT
                     ad_group_criterion.criterion_id,
@@ -270,57 +275,45 @@ class KeywordTools:
                     ad_group.id,
                     ad_group.name,
                     campaign.id,
-                    campaign.name,
-                    metrics.clicks,
-                    metrics.impressions,
-                    metrics.cost_micros,
-                    metrics.conversions
+                    campaign.name
                 FROM ad_group_criterion
                 WHERE ad_group_criterion.type = KEYWORD
+                    AND ad_group_criterion.status != 'REMOVED'
             """
-            
+
             # Add filters
             conditions = []
             if ad_group_id:
                 conditions.append(f"ad_group.id = {ad_group_id}")
             if campaign_id:
                 conditions.append(f"campaign.id = {campaign_id}")
-                
+
             if conditions:
                 query += " AND " + " AND ".join(conditions)
-                
-            query += " AND segments.date DURING LAST_30_DAYS"
-                
+
+            query += " ORDER BY ad_group.name, ad_group_criterion.keyword.text"
+
             response = googleads_service.search(
                 customer_id=customer_id, query=query
             )
-            
+
             keywords = []
             for row in response:
-                keyword_data = {
+                match_type_val = row.ad_group_criterion.keyword.match_type
+                status_val = row.ad_group_criterion.status
+                keywords.append({
                     "keyword_id": str(row.ad_group_criterion.criterion_id),
                     "text": str(row.ad_group_criterion.keyword.text),
-                    "match_type": str(row.ad_group_criterion.keyword.match_type.name),
-                    "status": str(row.ad_group_criterion.status.name),
+                    "match_type": match_type_val.name if hasattr(match_type_val, 'name') else str(match_type_val),
+                    "status": status_val.name if hasattr(status_val, 'name') else str(status_val),
                     "negative": row.ad_group_criterion.negative,
                     "cpc_bid": micros_to_currency(row.ad_group_criterion.cpc_bid_micros),
                     "ad_group_id": str(row.ad_group.id),
                     "ad_group_name": str(row.ad_group.name),
                     "campaign_id": str(row.campaign.id),
-                    "campaign_name": str(row.campaign.name)
-                }
-                
-                # Add performance metrics if available
-                if hasattr(row, 'metrics'):
-                    keyword_data["metrics"] = {
-                        "clicks": int(row.metrics.clicks),
-                        "impressions": int(row.metrics.impressions),
-                        "cost": micros_to_currency(row.metrics.cost_micros),
-                        "conversions": float(row.metrics.conversions)
-                    }
-                
-                keywords.append(keyword_data)
-            
+                    "campaign_name": str(row.campaign.name),
+                })
+
             return {
                 "success": True,
                 "keywords": keywords,
@@ -330,7 +323,7 @@ class KeywordTools:
                     "campaign_id": campaign_id
                 }
             }
-            
+
         except GoogleAdsException as e:
             logger.error(f"Failed to list keywords: {e}")
             return {
@@ -560,11 +553,13 @@ class KeywordTools:
             
             keywords = []
             for row in response:
+                match_type_val = row.ad_group_criterion.keyword.match_type
+                status_val = row.ad_group_criterion.status
                 keyword_data = {
                     "keyword_id": str(row.ad_group_criterion.criterion_id),
                     "text": str(row.ad_group_criterion.keyword.text),
-                    "match_type": str(row.ad_group_criterion.keyword.match_type.name),
-                    "status": str(row.ad_group_criterion.status.name),
+                    "match_type": match_type_val.name if hasattr(match_type_val, 'name') else str(match_type_val),
+                    "status": status_val.name if hasattr(status_val, 'name') else str(status_val),
                     "cpc_bid": micros_to_currency(row.ad_group_criterion.cpc_bid_micros),
                     "ad_group_name": str(row.ad_group.name),
                     "ad_group_id": str(row.ad_group.id),
@@ -745,9 +740,11 @@ class KeywordTools:
                 total_data["conversions"] += conversions
                 total_data["clicks"] += clicks
                 
+                stv_status = row.search_term_view.status
+                stv_status_str = stv_status.name if hasattr(stv_status, 'name') else str(stv_status)
                 search_data = {
                     "search_term": search_term,
-                    "status": str(row.search_term_view.status.name),
+                    "status": stv_status_str,
                     "cost": round(cost, 2),
                     "clicks": clicks,
                     "impressions": int(row.metrics.impressions),
@@ -761,7 +758,7 @@ class KeywordTools:
                     "campaign_name": str(row.campaign.name),
                     "ad_group_name": str(row.ad_group.name),
                 }
-                
+
                 # Categorize based on performance
                 if conversions > 0 and cost > 0:
                     roas = conversion_value / cost
@@ -769,9 +766,9 @@ class KeywordTools:
                         high_performers.append(search_data)
                     elif conversions == 0 and cost >= 5:
                         wasteful_terms.append(search_data)
-                
+
                 # Identify keyword expansion opportunities
-                if row.search_term_view.status.name == "NONE" and conversions > 0:
+                if stv_status_str == "NONE" and conversions > 0:
                     keyword_opportunities.append(search_data)
             
             # Generate insights
